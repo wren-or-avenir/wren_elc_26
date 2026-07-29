@@ -6,8 +6,8 @@ from models.detector import Detector
 from models.tracker import Tracker, Status
 from models.uart import UartDev
 
-camera_index = 0             
-uart_port = '/dev/ttyS1'      
+camera_index = 4             
+uart_port = '/dev/ttyACM0'      
 use_kf = True           
 show_windows = 1     
 
