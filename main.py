@@ -22,7 +22,7 @@ def nothing(x): pass
 
 def init_board():
     cv2.namedWindow('Controls', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Controls', 300, 250) # 调大一点，装得下新滑块
+    cv2.resizeWindow('Controls', 300, 250) 
     cv2.namedWindow('DETECTOR', cv2.WINDOW_FREERATIO)  
     cv2.namedWindow('BIN', cv2.WINDOW_FREERATIO)      
     cv2.namedWindow('Tracker', cv2.WINDOW_FREERATIO)  
@@ -31,9 +31,11 @@ def init_board():
     cv2.createTrackbar('cm_px', 'Controls', 52, 200, nothing) 
     cv2.createTrackbar('roi_w', 'Controls', 160, 640, nothing) 
     
-    # 新增：自适应阈值参数滑块
+    # 局部自适应阈值参数
     cv2.createTrackbar('blk_size', 'Controls', 51, 201, nothing) 
     cv2.createTrackbar('C_val', 'Controls', 15, 100, nothing) 
+    # 一维投影峰值下限 (像素个数)
+    cv2.createTrackbar('proj_th', 'Controls', 10, 160, nothing) 
     
     cv2.createTrackbar('show', 'Controls', 1, 1, nothing)
 
@@ -47,17 +49,17 @@ def update_params():
     if roi_width < 10: 
         roi_width = 10
         
-    # 获取自适应阈值参数
     block_size = cv2.getTrackbarPos('blk_size', 'Controls')
     c_val = cv2.getTrackbarPos('C_val', 'Controls')
+    proj_min_val = cv2.getTrackbarPos('proj_th', 'Controls')
     
-    # OpenCV 的 adaptiveThreshold 规定 block_size 必须为奇数且 >= 3
+    # opencv要求 blockSize 必须大于等于3且为奇数
     if block_size < 3: 
         block_size = 3
     if block_size % 2 == 0: 
         block_size += 1
         
-    return roi_width, block_size, c_val
+    return roi_width, block_size, c_val, proj_min_val
 
 def main():
     global show_windows, brake_th
@@ -70,11 +72,9 @@ def main():
             ret, frame = camera.read()
             if not ret: continue
 
-            # 接收返回的自适应阈值参数
-            roi_width, block_size, c_val = update_params()
+            roi_width, block_size, c_val, proj_min_val = update_params()
 
-            # 一并传入 detect
-            ball_pos = detector.detect(frame, roi_width, block_size, c_val)
+            ball_pos = detector.detect(frame, roi_width, block_size, c_val, proj_min_val)
             
             y_offset, y_vel, status = tracker.track(ball_pos)
             
