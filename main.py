@@ -6,34 +6,34 @@ from models.detector import Detector
 from models.tracker import Tracker, Status
 from models.uart import UartDev
 
-# --------- 全局接口 ---------------------
 camera_index = 4             
 uart_port = '/dev/ttyACM0'      
 use_kf = True           
 show_windows = 1     
-# ----------------------------------------
 
 camera = Camera(index=camera_index, width=640, height=480)
 detector = Detector(img_width=640, img_height=480)
 tracker = Tracker(img_height=480, use_kf=use_kf) 
 uart = UartDev(port=uart_port, baudrate=115200)
 
-brake_th = 1.0 # 刹车阈值(cm)
+brake_th = 1.0 
 
 def nothing(x): pass
 
 def init_board():
     cv2.namedWindow('Controls', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Controls', 300, 150)
+    cv2.resizeWindow('Controls', 300, 250) # 调大一点，装得下新滑块
     cv2.namedWindow('DETECTOR', cv2.WINDOW_FREERATIO)  
     cv2.namedWindow('BIN', cv2.WINDOW_FREERATIO)      
     cv2.namedWindow('Tracker', cv2.WINDOW_FREERATIO)  
 
     cv2.createTrackbar('brake_th', 'Controls', 10, 100, nothing) 
     cv2.createTrackbar('cm_px', 'Controls', 52, 200, nothing) 
-    
-    # 新增：ROI宽度控制滑块，默认160，最大640
     cv2.createTrackbar('roi_w', 'Controls', 160, 640, nothing) 
+    
+    # 新增：自适应阈值参数滑块
+    cv2.createTrackbar('blk_size', 'Controls', 51, 201, nothing) 
+    cv2.createTrackbar('C_val', 'Controls', 15, 100, nothing) 
     
     cv2.createTrackbar('show', 'Controls', 1, 1, nothing)
 
@@ -43,12 +43,21 @@ def update_params():
     tracker.cm_per_pixel = cv2.getTrackbarPos('cm_px', 'Controls') / 1000.0
     show_windows = cv2.getTrackbarPos('show', 'Controls')
     
-    # 获取动态 ROI 宽度
     roi_width = cv2.getTrackbarPos('roi_w', 'Controls')
-    # 防止滑块拉到 0 导致切片崩溃
     if roi_width < 10: 
         roi_width = 10
-    return roi_width
+        
+    # 获取自适应阈值参数
+    block_size = cv2.getTrackbarPos('blk_size', 'Controls')
+    c_val = cv2.getTrackbarPos('C_val', 'Controls')
+    
+    # OpenCV 的 adaptiveThreshold 规定 block_size 必须为奇数且 >= 3
+    if block_size < 3: 
+        block_size = 3
+    if block_size % 2 == 0: 
+        block_size += 1
+        
+    return roi_width, block_size, c_val
 
 def main():
     global show_windows, brake_th
@@ -61,10 +70,11 @@ def main():
             ret, frame = camera.read()
             if not ret: continue
 
-            roi_width = update_params()
+            # 接收返回的自适应阈值参数
+            roi_width, block_size, c_val = update_params()
 
-            # 将动态 roi_width 传入 detect
-            ball_pos = detector.detect(frame, roi_width)
+            # 一并传入 detect
+            ball_pos = detector.detect(frame, roi_width, block_size, c_val)
             
             y_offset, y_vel, status = tracker.track(ball_pos)
             
@@ -73,7 +83,6 @@ def main():
             fps = 1.0 / loop_dt
             prev_time = curr_time
 
-            # 状态逻辑：0=丢失 | 1=到位(刹车) | 2=偏移量大(运动)
             send_status = 0
             if status in [Status.TRACK, Status.TMP_LOST]:
                 if abs(y_offset) < brake_th:
@@ -93,7 +102,6 @@ def main():
 
             print(f"FPS: {fps:.1f} | {info}")
 
-            # 图像同步与绘制
             detector.raw = frame
             tracker.raw = frame
 
@@ -105,9 +113,12 @@ def main():
                 if bin_img is not None: cv2.imshow("BIN", bin_img)
                 if vis_trk is not None: cv2.imshow("Tracker", vis_trk)
             else:
-                # 隐藏窗口不计算显示逻辑，省资源
-                try: cv2.destroyWindow("DETECTOR"); cv2.destroyWindow("BIN"); cv2.destroyWindow("Tracker")
-                except: pass
+                try: 
+                    cv2.destroyWindow("DETECTOR")
+                    cv2.destroyWindow("BIN")
+                    cv2.destroyWindow("Tracker")
+                except: 
+                    pass
             
             if cv2.waitKey(1) & 0xFF == ord('q'): break
 

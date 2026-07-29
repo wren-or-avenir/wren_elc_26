@@ -13,10 +13,10 @@ class Detector:
         self.binary = None 
         self.ball_pos = None
 
-    def process_image(self, frame, roi_width):
+    # 新增 block_size 和 c_val 参数
+    def process_image(self, frame, roi_width, block_size, c_val):
         self.raw = frame
         
-        # 根据传入的 roi_width 动态计算边界
         self.roi_x_min = max(0, self.img_width // 2 - roi_width // 2)
         self.roi_x_max = min(self.img_width, self.img_width // 2 + roi_width // 2)
         
@@ -24,12 +24,14 @@ class Detector:
         gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)     
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         
-        # 核心修正 1: 反相二值化 (THRESH_BINARY_INV) 
-        # 白色的管子变黑底，黑色的钢珠变白块
-        _, binary = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)        
+        # 核心替换：使用局部自适应阈值，ADAPTIVE_THRESH_MEAN_C + THRESH_BINARY_INV
+        # 这将无视大面积的光照渐变，强行把比周围稍暗的钢珠给提亮成白块
+        binary = cv2.adaptiveThreshold(
+            blurred, 255, cv2.ADAPTIVE_THRESH_MEAN_C, 
+            cv2.THRESH_BINARY_INV, block_size, c_val
+        )      
         
-        # 核心修正 2: 形态学闭运算 (补洞)
-        # 填补钢珠中间因为高光反光产生的破洞，使其变成实心图形
+        # 形态学闭运算：补洞
         kernel = np.ones((7, 7), np.uint8)
         self.binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
         
@@ -47,7 +49,6 @@ class Detector:
         
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            # 这里的面积阈值可能需要根据补洞后的实际大小微调
             if 50 < area < 2000:
                 x, y, w, h = cv2.boundingRect(cnt)
                 aspect_ratio = float(w) / max(h, 1)
@@ -65,7 +66,6 @@ class Detector:
         return best_ball
 
     def _draw_annotations(self, image):
-        # 画出动态的 ROI 边界
         cv2.line(image, (self.roi_x_min, 0), (self.roi_x_min, self.img_height), (0, 255, 255), 2)
         cv2.line(image, (self.roi_x_max, 0), (self.roi_x_max, self.img_height), (0, 255, 255), 2)
         
@@ -80,9 +80,9 @@ class Detector:
         self._draw_annotations(image)
         return image
 
-    # 接口改变：现在需要传入 roi_width
-    def detect(self, frame, roi_width):
-        bin_img = self.process_image(frame, roi_width)
+    # 接口改变：同样传入新参数
+    def detect(self, frame, roi_width, block_size, c_val):
+        bin_img = self.process_image(frame, roi_width, block_size, c_val)
         return self.find_ball(bin_img)
     
     def display(self, dis):
