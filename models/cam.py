@@ -4,7 +4,7 @@ import queue
 import threading
 
 class Camera:
-    def __init__(self, index = 0, width=640, height=480):
+    def __init__(self, index = 4, width=640, height=480):
         # 尝试打开摄像头，直到成功为止
         index = self.find_index(index)
         if index is None:
@@ -15,7 +15,7 @@ class Camera:
         self.cam.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))  # 设置格式为 MJPG
         self.cam.set(cv2.CAP_PROP_FRAME_WIDTH, width)               # 设置宽高
         self.cam.set(cv2.CAP_PROP_FRAME_HEIGHT, height)     
-        self.cam.set(cv2.CAP_PROP_FPS, 120)                          # 强求 60 帧
+        self.cam.set(cv2.CAP_PROP_FPS, 120)                          # 强求 120 帧
 
         # 获取实际生效的画面宽度与高度
         self.width = int(self.cam.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -25,7 +25,7 @@ class Camera:
         actual_fps = self.cam.get(cv2.CAP_PROP_FPS)
         actual_fourcc = int(self.cam.get(cv2.CAP_PROP_FOURCC))      # 解码 FOURCC 变成可读的字符串
         fourcc_str = "".join([chr((actual_fourcc >> 8 * i) & 0xFF) for i in range(4)]) if actual_fourcc != 0 else "未知"
-        print(f"\n[摄像头底层核查] 格式: {fourcc_str} | 目标帧率: 60 | 实际生效帧率: {actual_fps}\n")
+        print(f"\n[摄像头底层核查] 格式: {fourcc_str} | 目标帧率: 120 | 实际生效帧率: {actual_fps}\n")
 
         # 长度为1的线程队列
         self.q = queue.Queue(maxsize=1)
