@@ -64,6 +64,8 @@ def main():
     print_counter = 0
     last_x_offset = 0.0
     last_x_vel = 0.0
+    send_hz = 100
+    last_send = time.time()
 
     try:
         while True:
@@ -94,7 +96,10 @@ def main():
                 x_offset = last_x_offset
                 x_vel = last_x_vel
             
-            uart.send_data(x_offset, x_vel, send_status)
+            now = time.time()
+            if now - last_send >= 1.0 / send_hz:
+                uart.send_data(x_offset, x_vel, send_status)
+                last_send = now
             
             print_counter += 1
             if print_counter >= 40:
