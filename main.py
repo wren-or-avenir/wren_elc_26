@@ -20,7 +20,7 @@ def nothing(x): pass
 
 def init_board():
     cv2.namedWindow('Controls', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('Controls', 400, 600) 
+    cv2.resizeWindow('Controls', 400, 650) 
     cv2.namedWindow('DETECTOR', cv2.WINDOW_FREERATIO)  
     cv2.namedWindow('BIN', cv2.WINDOW_FREERATIO)      
     cv2.namedWindow('PROJ', cv2.WINDOW_FREERATIO) 
@@ -33,8 +33,10 @@ def init_board():
     cv2.createTrackbar('angle', 'Controls', 5, 10, nothing)      # 倾角补偿：0-10档位对应-5度到+5度(5为0度完全水平)
 
     # ----- ROI(感兴趣区域)限制 -----
-    cv2.createTrackbar('roi_Y1', 'Controls', 200, 480, nothing)  # 图像上边缘：向下压，切除水管上方的画面杂物
-    cv2.createTrackbar('roi_Y2', 'Controls', 280, 480, nothing)  # 图像下边缘：向上抬，切除水管下方的画面杂物
+    cv2.createTrackbar('roi_X1', 'Controls', 0, 848, nothing)    # 图像左边缘：向右压，切除左侧杂物 (粉线)
+    cv2.createTrackbar('roi_X2', 'Controls', 848, 848, nothing)  # 图像右边缘：向左压，切除右侧杂物 (粉线)
+    cv2.createTrackbar('roi_Y1', 'Controls', 200, 480, nothing)  # 图像上边缘：向下压，切除上方杂物 (黄线)
+    cv2.createTrackbar('roi_Y2', 'Controls', 280, 480, nothing)  # 图像下边缘：向上抬，切除下方杂物 (黄线)
     
     # ----- 算法参数 -----
     cv2.createTrackbar('blk_size', 'Controls', 51, 201, nothing) # 二值化块大小：抵抗光照不均，必须为奇数
@@ -54,6 +56,8 @@ def update_params():
     zero_y = cv2.getTrackbarPos('zero_Y', 'Controls')
     angle_deg = cv2.getTrackbarPos('angle', 'Controls') - 5  
     
+    rx1 = cv2.getTrackbarPos('roi_X1', 'Controls')
+    rx2 = cv2.getTrackbarPos('roi_X2', 'Controls')
     ry1 = cv2.getTrackbarPos('roi_Y1', 'Controls')
     ry2 = cv2.getTrackbarPos('roi_Y2', 'Controls')
 
@@ -63,7 +67,7 @@ def update_params():
     c_val = cv2.getTrackbarPos('C_val', 'Controls')
     proj_min_val = cv2.getTrackbarPos('proj_th', 'Controls')
     
-    return ry1, ry2, block_size, c_val, proj_min_val, pipe_left, pipe_right, zero_x, zero_y, angle_deg
+    return rx1, rx2, ry1, ry2, block_size, c_val, proj_min_val, pipe_left, pipe_right, zero_x, zero_y, angle_deg
 
 def main():
     global show_windows
@@ -84,7 +88,7 @@ def main():
             ret, frame = camera.read()
             if not ret: continue
             
-            ry1, ry2, block_size, c_val, proj_min_val, pipe_left, pipe_right, zero_x, zero_y, angle_deg = update_params()
+            rx1, rx2, ry1, ry2, block_size, c_val, proj_min_val, pipe_left, pipe_right, zero_x, zero_y, angle_deg = update_params()
 
             current_tick = cv2.getTickCount()
             dt = (current_tick - last_tick) / freq
@@ -92,7 +96,7 @@ def main():
             last_tick = current_tick
             fps = 1.0 / dt if dt > 0 else 0
 
-            ball_pos = detector.detect(frame, ry1, ry2, block_size, c_val, proj_min_val)
+            ball_pos = detector.detect(frame, rx1, rx2, ry1, ry2, block_size, c_val, proj_min_val)
             x_offset, x_vel, status = tracker.track(ball_pos, dt, zero_x)
 
             if status in [Status.TRACK, Status.TMP_LOST]:
@@ -110,7 +114,7 @@ def main():
                 if cos_theta <= 0: 
                     cos_theta = 1.0 
                     
-                # 物理换算：斜边投影补偿与单位转换
+                # 物理换算：斜边投影补偿与单位转换 (cm -> mm, cm/s -> m/s)
                 send_offset_mm = (x_offset / cos_theta) * 10.0
                 send_vel_ms = (x_vel / cos_theta) / 100.0
                 
@@ -133,7 +137,7 @@ def main():
                 detector.raw = frame
                 vis_det, bin_img, proj_canvas = detector.display(dis=1)
                 if vis_det is not None:
-                    # 比例标定基准线
+                    # 比例标定基准线 (黄色虚线/细线)
                     cv2.line(vis_det, (pipe_left, 0), (pipe_left, 480), (0, 255, 255), 1)
                     cv2.line(vis_det, (pipe_right, 0), (pipe_right, 480), (0, 255, 255), 1)
                     
@@ -141,6 +145,17 @@ def main():
                     cv2.line(vis_det, (zero_x, 0), (zero_x, 480), (0, 0, 255), 1)
                     cv2.line(vis_det, (0, zero_y), (848, zero_y), (0, 0, 255), 1)
                     cv2.circle(vis_det, (zero_x, zero_y), 5, (0, 0, 255), -1)
+                    
+                    # 动态蓝色倾角基准线 (作为标定倾角的“水平尺”)
+                    cos_a = math.cos(math.radians(angle_deg))
+                    sin_a = math.sin(math.radians(angle_deg))
+                    # 计算一条长度为1600像素(能贯穿屏幕)的直线的两端点
+                    p1_x = int(zero_x - 800 * cos_a)
+                    p1_y = int(zero_y - 800 * sin_a)
+                    p2_x = int(zero_x + 800 * cos_a)
+                    p2_y = int(zero_y + 800 * sin_a)
+                    # 画出粗蓝线，用于与水管物理倾角做视觉平齐
+                    cv2.line(vis_det, (p1_x, p1_y), (p2_x, p2_y), (255, 0, 0), 2)
                     
                     cv2.imshow("DETECTOR", vis_det)
                 if bin_img is not None: 
