@@ -17,14 +17,14 @@ class Tracker:
         self.frame_lost_tol = 5
         self.status = Status.LOST
 
-    def track(self, ball_center, dt):
+    def track(self, ball_center, dt, zero_x):
         cx = 0.0
         filtered_v = 0.0
         raw_offset_x = 0.0
 
         if ball_center is not None:
-            # 相机 X 轴坐标到中心的偏差映射
-            raw_offset_x = (ball_center[0] - self.img_width / 2.0) * self.cm_per_pixel
+            # 引入标定零点：用实际物理零点 zero_x 替代旧的 self.img_width / 2.0
+            raw_offset_x = (ball_center[0] - zero_x) * self.cm_per_pixel
 
         if self.use_kf:
             if ball_center is not None:
