@@ -50,7 +50,9 @@ def update_params():
     
     pipe_left = cv2.getTrackbarPos('pipe_L', 'Controls')
     pipe_right = cv2.getTrackbarPos('pipe_R', 'Controls')
-    tracker.cm_per_pixel = 25.0 / max(1, abs(pipe_right - pipe_left))
+    
+    # 将原本的 25.0 替换为实际可见水管长度 24.6
+    tracker.cm_per_pixel = 24.6 / max(1, abs(pipe_right - pipe_left))
     
     zero_x = cv2.getTrackbarPos('zero_X', 'Controls')
     zero_y = cv2.getTrackbarPos('zero_Y', 'Controls')
