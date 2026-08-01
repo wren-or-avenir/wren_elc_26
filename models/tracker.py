@@ -23,8 +23,8 @@ class Tracker:
         raw_offset_x = 0.0
 
         if ball_center is not None:
-            # 引入标定零点：用实际物理零点 zero_x 替代旧的 self.img_width / 2.0
-            raw_offset_x = (ball_center[0] - zero_x) * self.cm_per_pixel
+            # 已反转符号：从 (ball_center[0] - zero_x) 改为 (zero_x - ball_center[0])
+            raw_offset_x = (zero_x - ball_center[0]) * self.cm_per_pixel
 
         if self.use_kf:
             if ball_center is not None:
@@ -34,7 +34,7 @@ class Tracker:
                     self.kf_x.reset()
                 else:
                     self.status = Status.TRACK
-                
+
                 self.kf_x.predict(dt)
                 cx, filtered_v = self.kf_x.update(raw_offset_x)
             else:
