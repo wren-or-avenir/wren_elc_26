@@ -141,7 +141,7 @@ def main():
 
             if show_windows == 1:
                 detector.raw = frame
-                vis_det, bin_img, proj_canvas = detector.display(dis=1)
+                vis_det, bin_img, proj_canvas = detector.display()
                 if vis_det is not None:
                     cv2.line(vis_det, (pipe_left, 0), (pipe_left, 480), (0, 255, 255), 1)
                     cv2.line(vis_det, (pipe_right, 0), (pipe_right, 480), (0, 255, 255), 1)

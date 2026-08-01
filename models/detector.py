@@ -67,44 +67,43 @@ class Detector:
         bin_img = self.process_image(frame, rx1, rx2, ry1, ry2, block_size, c_val)
         return self.find_ball(bin_img, proj_min_val)
 
-    def display(self, dis):
+    def display(self):
         if self.raw is None:
             return None, self.binary, None
 
         vis = self.raw.copy()
         proj_canvas = None
 
-        if dis == 1:
-            # 水平上下裁剪界限 (黄色)
-            cv2.line(vis, (0, self.ry1), (self.img_width, self.ry1), (0, 255, 255), 1)
-            cv2.line(vis, (0, self.ry2), (self.img_width, self.ry2), (0, 255, 255), 1)
-            # 垂直左右裁剪界限 (粉色)
-            cv2.line(vis, (self.rx1, 0), (self.rx1, self.img_height), (255, 0, 255), 1)
-            cv2.line(vis, (self.rx2, 0), (self.rx2, self.img_height), (255, 0, 255), 1)
+        # 水平上下裁剪界限 (黄色)
+        cv2.line(vis, (0, self.ry1), (self.img_width, self.ry1), (0, 255, 255), 1)
+        cv2.line(vis, (0, self.ry2), (self.img_width, self.ry2), (0, 255, 255), 1)
+        # 垂直左右裁剪界限 (粉色)
+        cv2.line(vis, (self.rx1, 0), (self.rx1, self.img_height), (255, 0, 255), 1)
+        cv2.line(vis, (self.rx2, 0), (self.rx2, self.img_height), (255, 0, 255), 1)
 
+        if self.ball_pos is not None:
+            cx, cy = int(self.ball_pos[0]), int(self.ball_pos[1])
+            cv2.circle(vis, (cx, cy), 10, (0, 255, 0), 2)
+            cv2.circle(vis, (cx, cy), 3, (0, 0, 255), -1)
+            # 画出钢球的垂直定位线
+            cv2.line(vis, (cx, self.ry1), (cx, self.ry2), (255, 0, 0), 1)
+
+        if self.projection is not None:
+            proj_canvas = np.zeros((150, self.img_width, 3), dtype=np.uint8)
+            max_p = np.max(self.projection) + 1e-5
+            norm_proj = (self.projection / max_p * 120).astype(np.int32)
+
+            # 绘制波形时同样补偿起始偏移 self.rx1
+            for x in range(1, len(norm_proj)):
+                cv2.line(
+                    proj_canvas,
+                    (x - 1 + self.rx1, 140 - norm_proj[x - 1]),
+                    (x + self.rx1, 140 - norm_proj[x]),
+                    (255, 255, 255),
+                    1,
+                )
             if self.ball_pos is not None:
-                cx, cy = int(self.ball_pos[0]), int(self.ball_pos[1])
-                cv2.circle(vis, (cx, cy), 10, (0, 255, 0), 2)
-                cv2.circle(vis, (cx, cy), 3, (0, 0, 255), -1)
-                # 画出钢球的垂直定位线
-                cv2.line(vis, (cx, self.ry1), (cx, self.ry2), (255, 0, 0), 1)
-
-            if self.projection is not None:
-                proj_canvas = np.zeros((150, self.img_width, 3), dtype=np.uint8)
-                max_p = np.max(self.projection) + 1e-5
-                norm_proj = (self.projection / max_p * 120).astype(np.int32)
-
-                # 绘制波形时同样补偿起始偏移 self.rx1
-                for x in range(1, len(norm_proj)):
-                    cv2.line(
-                        proj_canvas,
-                        (x - 1 + self.rx1, 140 - norm_proj[x - 1]),
-                        (x + self.rx1, 140 - norm_proj[x]),
-                        (255, 255, 255),
-                        1,
-                    )
-                if self.ball_pos is not None:
-                    bx = int(self.ball_pos[0])
-                    cv2.line(proj_canvas, (bx, 0), (bx, 150), (0, 0, 255), 2)
+                bx = int(self.ball_pos[0])
+                cv2.line(proj_canvas, (bx, 0), (bx, 150), (0, 0, 255), 2)
 
         return vis, self.binary, proj_canvas
