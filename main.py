@@ -116,20 +116,21 @@ def main():
                     cos_theta = 1.0
 
                 send_offset_mm = (x_offset / cos_theta) * 10.0
-                send_vel_ms = (x_vel / cos_theta) / 100.0
+                # x_vel 的原始单位是 cm/s，转换为 mm/s 需要乘以 10.0
+                send_vel_mms = (x_vel / cos_theta) * 10.0
 
-                uart.send_data(send_offset_mm, send_vel_ms, send_status)
+                uart.send_data(send_offset_mm, send_vel_mms, send_status)
                 last_send = now
 
             print_counter += 1
             if print_counter >= 40:
                 info = ""
                 if status == Status.TRACK:
-                    info = f"[TRACK] dx:{send_offset_mm:>7.2f}mm vx:{send_vel_ms:>6.3f}m/s 状态:{send_status}"
+                    info = f"[TRACK] dx:{send_offset_mm:>7.2f}mm vx:{send_vel_mms:>7.2f}mm/s 状态:{send_status}"
                 elif status == Status.TMP_LOST:
-                    info = f"[PRED]  dx:{send_offset_mm:>7.2f}mm vx:{send_vel_ms:>6.3f}m/s 状态:{send_status}"
+                    info = f"[PRED]  dx:{send_offset_mm:>7.2f}mm vx:{send_vel_mms:>7.2f}mm/s 状态:{send_status}"
                 else:
-                    info = f"[LOST]  dx:{send_offset_mm:>7.2f}mm vx:{send_vel_ms:>6.3f}m/s 状态:{send_status}"
+                    info = f"[LOST]  dx:{send_offset_mm:>7.2f}mm vx:{send_vel_mms:>7.2f}mm/s 状态:{send_status}"
                 print(f"FPS: {fps:.1f} | {info}")
                 print_counter = 0
 

@@ -12,7 +12,7 @@ class Tracker:
         self.img_width = img_width
         self.cm_per_pixel = cm_per_pixel
         self.use_kf = use_kf
-        self.kf_x = KalmanFilter(q_scale=0.1, r_scale=1.0)
+        self.kf_x = KalmanFilter(q_scale=1.0, r_scale=0.1)
         self.lost_count = 0
         self.frame_lost_tol = 5
         self.status = Status.LOST
