@@ -100,6 +100,11 @@ def main():
             ball_pos = detector.detect(frame, rx1, rx2, ry1, ry2, block_size, c_val, proj_min_val)
             x_offset, x_vel, status = tracker.track(ball_pos, dt, zero_x)
 
+            # ----- 新增：物理边界强制清零速度 -----
+            if x_offset >= 10.5 or x_offset <= -10.5:
+                x_vel = 0.0
+            # ------------------------------------
+
             if status in [Status.TRACK, Status.TMP_LOST]:
                 send_status = 1
                 last_x_offset = x_offset
